@@ -61,7 +61,7 @@ class hook_callbacks {
      * @return void|null
      */
     public static function after_config(\core\hook\after_config $hook) {
-        if (!get_config('tool_abconfig', 'version')) {
+        if (during_initial_install() || !get_config('tool_abconfig', 'version')) {
             // Do nothing if plugin install not completed.
             return;
         }
