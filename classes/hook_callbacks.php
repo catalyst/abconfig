@@ -57,7 +57,7 @@ class hook_callbacks {
     /**
      * Runs after config has been set.
      *
-     * @param \core\hook\before_http_headers $hook
+     * @param \core\hook\after_config $hook
      * @return void|null
      */
     public static function after_config(\core\hook\after_config $hook) {
