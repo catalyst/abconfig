@@ -53,4 +53,19 @@ class hook_callbacks {
 
         tool_abconfig_execute_js('footer');
     }
+
+    /**
+     * Runs after config has been set.
+     *
+     * @param \core\hook\after_config $hook
+     * @return void|null
+     */
+    public static function after_config(\core\hook\after_config $hook) {
+        if (during_initial_install() || !get_config('tool_abconfig', 'version')) {
+            // Do nothing if plugin install not completed.
+            return;
+        }
+
+        tool_abconfig_after_config();
+    }
 }
