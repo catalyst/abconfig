@@ -16,6 +16,10 @@
 
 namespace tool_abconfig;
 
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/admin/tool/abconfig/lib.php');
+
 /**
  * Hook callbacks for tool_abconfig.
  *
@@ -61,7 +65,7 @@ class hook_callbacks {
      * @return void|null
      */
     public static function after_config(\core\hook\after_config $hook) {
-        if (during_initial_install() || !get_config('tool_abconfig', 'version')) {
+        if (during_initial_install() || isset($CFG->upgraderunning) || !get_config('tool_abconfig', 'version')) {
             // Do nothing if plugin install not completed.
             return;
         }
