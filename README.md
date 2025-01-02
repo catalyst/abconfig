@@ -66,10 +66,17 @@ Here is where the commands for a condition set can be specified. These are appli
 This command sets moodle core configurations to a specified value.
 
 Note: `CFG` and `forced_plugin_setting` commands will not overwrite config set inside config.php by design as a security measure.
+However you can allow this by setting:
+
+```php
+$CFG->somethingforced = 'original value';
+$CFG->somethingforced_allow_abconfig = 1;
+```
 
 ```
 CFG,config,value
 CFG,passwordpolicy,1
+CFG,somethingforced,myoverride
 ```
 
 ##### forced_plugin_setting

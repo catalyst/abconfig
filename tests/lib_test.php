@@ -31,7 +31,7 @@ require_once(__DIR__.'/../lib.php');
  * @copyright  2019 Peter Burnett <peterburnett@catalyst-au.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class tool_abconfig_lib_testcase extends advanced_testcase {
+class tool_abconfig_lib_test extends advanced_testcase {
 
     public function test_request_no_experiment() {
         $this->resetAfterTest(true);
