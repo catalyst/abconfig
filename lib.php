@@ -33,8 +33,22 @@ defined('MOODLE_INTERNAL') || die;
  * @return void|null
  */
 function tool_abconfig_after_config() {
+    // No longer used, uses before_session_start instead.
+    // Kept in case we want experiment options later to say when to inject the changes.
+}
+
+/**
+ * Before session
+ *
+ * At some point this will also get converted to hook in core.
+ *
+ * @return void|null
+ */
+function tool_abconfig_before_session_start() {
+
+    global $SESSION, $USER, $CFG;
+
     try {
-        global $SESSION, $USER;
 
         // Setup experiment manager.
         $manager = new tool_abconfig_experiment_manager();
@@ -269,10 +283,15 @@ function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js =
         if ($command == 'CFG') {
             $commandarray = explode(',', $commandstring, 3);
 
-            // Ensure that command hasnt already been set in config.php.
-            if (!array_key_exists($commandarray[1], $CFG->config_php_settings)) {
+            // Allow override if set in config.php already:
+            $allow = isset($CFG->{$commandarray[1] . '_allow_abconfig'});
+
+            // Ensure that command hasn't already been set in config.php.
+            if ($allow || !array_key_exists($commandarray[1], $CFG->config_php_settings)) {
                 $CFG->{$commandarray[1]} = $commandarray[2];
                 $CFG->config_php_settings[$commandarray[1]] = $commandarray[2];
+            } else {
+                error_log("abconfig: Can't override \$CFG->{$commandarray[1]} because already set in config.php!");
             }
         }
         if ($command == 'forced_plugin_setting') {

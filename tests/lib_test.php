@@ -31,7 +31,7 @@ require_once(__DIR__.'/../lib.php');
  * @copyright  2019 Peter Burnett <peterburnett@catalyst-au.net>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class tool_abconfig_lib_testcase extends advanced_testcase {
+class tool_abconfig_lib_test extends advanced_testcase {
 
     public function test_request_no_experiment() {
         $this->resetAfterTest(true);
@@ -44,7 +44,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         $preconfig = $CFG;
 
         // Execute hook call.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
 
         // Check Config wasnt changed by hook (more for unintended side effect regression testing).
         $this->assertSame($preconfig, $CFG);
@@ -67,7 +67,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
             'commands' => 'CFG,passwordpolicy,1', 'condset' => 'set1', 'value' => 100));
 
         // Call the hook.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
 
         // Test that the configuration was NOT applied.
         $this->assertEquals($CFG->passwordpolicy, 0);
@@ -92,7 +92,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
             'commands' => '["CFG,passwordpolicy,1"]', 'condset' => 'set1', 'value' => 100));
 
         // Call the hook.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
 
         // Test that the configuration was applied.
         $this->assertEquals($CFG->passwordpolicy, 1);
@@ -102,7 +102,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         unset($CFG->config_php_settings['passwordpolicy']);
         set_config('passwordpolicy', 0);
 
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals($CFG->passwordpolicy, 1);
     }
 
@@ -125,7 +125,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
             'commands' => '["forced_plugin_setting,auth_manual,expiration,yes"]', 'condset' => 'set1', 'value' => 100));
 
         // Call the hook.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
 
         // Test that the configuration was applied.
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
@@ -133,7 +133,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         // Manually set config back to false, then call hook again, and test.
         // Simulates next page load.
         set_config('expiration', 'no', 'auth_manual');
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
     }
 
@@ -163,7 +163,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
             'commands' => '["CFG,passwordpolicy,1"]', 'condset' => 'set2', 'value' => 0));
 
         // Now execute first hook, and check the plugin value.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
         $this->assertEquals($CFG->passwordpolicy, 0);
 
@@ -186,7 +186,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         // Purge caches to avoid caching issues with changing experiments.
         \cache_helper::invalidate_by_definition('tool_abconfig', 'experiments', array(), array('allexperiment'));
         // Now execute second hook, and check the plugin value.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'no');
         $this->assertEquals($CFG->passwordpolicy, 1);
 
@@ -206,7 +206,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
             'value', 50, 'condset = ? AND experiment = ?', array($sqlcondition4, $eid));
 
         // Now execute second hook, and check the plugin value.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertTrue((get_config('auth_manual', 'expiration') == 'yes') xor ($CFG->passwordpolicy == 1));
     }
 
@@ -238,7 +238,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         $DB->insert_record('tool_abconfig_condition', $record);
 
         // Now execute first hook, and check the plugin value.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
         $this->assertEquals($CFG->passwordpolicy, 1);
 
@@ -249,7 +249,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         set_config('passwordpolicy', 0);
 
         // Now execute second hook, and check the plugin value.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
         $this->assertEquals($CFG->passwordpolicy, 1);
     }
@@ -274,7 +274,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
             'commands' => '["CFG,passwordpolicy,1"]', 'condset' => 'set1', 'value' => 100));
 
         // Now execute first hook, and check core value hasnt changed.
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
 
         $this->assertEquals($CFG->passwordpolicy, 0);
 
@@ -286,7 +286,7 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         // Purge caches to avoid caching issues with changing experiments.
         \cache_helper::invalidate_by_definition('tool_abconfig', 'experiments', array(), array('allexperiment'));
 
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals($CFG->passwordpolicy, 1);
     }
 
@@ -370,10 +370,10 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         $this->assertEquals($CFG->passwordpolicy, 1);
 
         // Now set control manually to incorrect state, as if another page load performed,
-        // And test correct behaviour is set in the after_config hook.
+        // And test correct behaviour is set in the hook.
         unset($CFG->config_php_settings['passwordpolicy']);
         set_config('passwordpolicy', 0);
-        tool_abconfig_after_config();
+        tool_abconfig_before_session_start();
         $this->assertEquals($CFG->passwordpolicy, 1);
     }
 
@@ -419,8 +419,8 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         unset($CFG->forced_plugin_settings['auth_manual']['expiration']);
         set_config('expiration', 'no', 'auth_manual');
 
-        // Now test that the after_config hook sets to the correct session conditions.
-        tool_abconfig_after_config();
+        // Now test that the hook sets to the correct session conditions.
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
     }
 
@@ -465,8 +465,8 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         unset($CFG->config_php_settings['passwordpolicy']);
         set_config('passwordpolicy', 0);
 
-        // Test that after_config correctly applies both settings.
-        tool_abconfig_after_config();
+        // Test that callback correctly applies both settings.
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
         $this->assertEquals($CFG->passwordpolicy, 1);
     }
@@ -506,8 +506,8 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         unset($CFG->config_php_settings['passwordpolicy']);
         set_config('passwordpolicy', 0);
 
-        // Test that after_config only applies one setting.
-        tool_abconfig_after_config();
+        // Test that we only applies one setting.
+        tool_abconfig_before_session_start();
         $this->assertEquals(get_config('auth_manual', 'expiration'), 'no');
         $this->assertEquals($CFG->passwordpolicy, 1);
     }
@@ -534,8 +534,8 @@ class tool_abconfig_lib_testcase extends advanced_testcase {
         tool_abconfig_after_require_login();
         $this->assertEquals($CFG->passwordpolicy, 0);
 
-        // Test that the after_config hook also doesnt execute.
-        tool_abconfig_after_config();
+        // Test that the hook also doesnt execute.
+        tool_abconfig_before_session_start();
         $this->assertEquals($CFG->passwordpolicy, 0);
     }
 
