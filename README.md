@@ -1,6 +1,8 @@
 # A Moodle A/B testing admin tool
 
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/catalyst/moodle-tool_abconfig/ci/MOODLE_38_STABLE)
+<a href="https://github.com/catalyst/moodle-tool_abconfig/actions">
+<img src="https://github.com/catalyst/moodle-tool_abconfig/workflows/ci/badge.svg">
+</a>
 
 A way to A/B test config, or slowly turn on config for certain audiences or % of traffic
 
