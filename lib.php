@@ -291,7 +291,7 @@ function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js =
                 $CFG->{$commandarray[1]} = $commandarray[2];
                 $CFG->config_php_settings[$commandarray[1]] = $commandarray[2];
             } else {
-                debugging("abconfig: Can't override \$CFG->{$commandarray[1]} because already set in config.php!");
+                error_log("abconfig: Can't override \$CFG->{$commandarray[1]} because already set in config.php!");
             }
         }
         if ($command == 'forced_plugin_setting') {
