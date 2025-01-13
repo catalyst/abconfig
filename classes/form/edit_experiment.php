@@ -66,14 +66,26 @@ class edit_experiment extends \moodleform {
         $mform->addRule('experimentshortname', get_string('formexperimentshortnamereq', 'tool_abconfig'), 'required');
 
         // Setup Data array for scopes.
-        $scopes = ['request' => get_string('request', 'tool_abconfig'), 'session' => get_string('session', 'tool_abconfig')];
+        $scopes = [
+            'request' => get_string('request', 'tool_abconfig'),
+            'session' => get_string('session', 'tool_abconfig'),
+            'device' => get_string('device', 'tool_abconfig'),
+        ];
         $mform->addElement('select', 'scope', get_string('formexperimentscopeselect', 'tool_abconfig'), $scopes);
+
+        $mform->addElement('text', 'numoffset', get_string('offset', 'tool_abconfig'));
+        $mform->setType('numoffset', PARAM_INT);
+        $mform->hideIf('numoffset', 'scope', 'neq', 'device');
+        $mform->addRule('numoffset', get_string('err_numeric', 'form'), 'numeric', null, 'client');
+        $mform->addRule('numoffset', get_string('maximumchars', '', 2), 'maxlength', 2, 'client');
+        $mform->addHelpButton('numoffset', 'offset', 'tool_abconfig');
 
         // Enabled checkbox.
         $mform->addElement('advcheckbox', 'enabled', get_string('formexperimentenabled', 'tool_abconfig'));
 
         // Admin Enabled Checkbox.
         $mform->addElement('advcheckbox', 'adminenabled', '', get_string('formexperimentadminenable', 'tool_abconfig'));
+        $mform->hideIf('adminenabled', 'scope', 'eq', 'device');
 
         // Delete experiment checkbox.
         $mform->addElement('advcheckbox', 'delete', get_string('formdeleteexperiment', 'tool_abconfig'));

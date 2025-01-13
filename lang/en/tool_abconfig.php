@@ -65,9 +65,12 @@ $string['formexperimentadminenable'] = 'Enable this experiment for site admins.'
 // Short Strings.
 $string['request'] = 'Request';
 $string['session'] = 'Session';
+$string['device'] = 'Device';
 $string['name'] = 'Experiment name';
 $string['shortname'] = 'Short experiment name';
 $string['scope'] = 'Experiment scope';
+$string['offset'] = 'Offset';
+$string['offset_help'] = 'Offset value between 0 and 99 that will be used to rotate device hashes.';
 $string['edit'] = 'Edit';
 $string['enabled'] = 'Enabled';
 $string['yes'] = 'Yes';
