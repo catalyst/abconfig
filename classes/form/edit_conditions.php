@@ -57,6 +57,8 @@ class edit_conditions extends \moodleform {
 
         // Get Data for repeating elements.
         $manager = new \tool_abconfig_experiment_manager();
+        $experiment = $manager->get_experiment($eid);
+        $scope = $experiment->scope ?? '';
         $records = $manager->get_conditions_for_experiment($eid);
         $setcount = 1;
         foreach ($records as $record) {
@@ -92,6 +94,10 @@ class edit_conditions extends \moodleform {
             $mform->setType("users{$id}", PARAM_TEXT);
             if (!empty($record->users)) {
                 $mform->setDefault("users{$id}", json_decode($record->users));
+            }
+            // Hide user section if they can't be used.
+            if ($scope === 'device') {
+                $mform->hideIf("users{$id}", 'eid', 'neq', 0);
             }
 
             // Commands.

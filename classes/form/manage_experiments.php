@@ -46,7 +46,11 @@ class manage_experiments extends \moodleform {
         $mform = $this->_form;
 
         // Setup Data array for scopes.
-        $scopes = ['request' => get_string('request', 'tool_abconfig'), 'session' => get_string('session', 'tool_abconfig')];
+        $scopes = [
+            'request' => get_string('request', 'tool_abconfig'),
+            'session' => get_string('session', 'tool_abconfig'),
+            'device' => get_string('device', 'tool_abconfig'),
+        ];
 
         // Add section for adding experiments.
         $mform->addElement('header', 'addexperiment', get_string('formaddexperiment', 'tool_abconfig'));

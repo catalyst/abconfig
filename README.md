@@ -39,7 +39,7 @@ Configuration
 Visit the Site Administration menu and navigate to Plugins->Admin Tools->Manage Experiments. This page allows you to add new experiments, as well as edit existing experiments. To add a new experiment, fill in the fields, and click 'Add Experiment'. To edit the details of an existing experiment, click on the Edit link inside of the experiments table, to go to the edit page.
 
 ### Scopes and audiences
-The plugin currently has two scopes that experiments can lie under, Request scope and Session scope.
+The plugin currently has three scopes that experiments can lie under, Request scope, Session scope and Device scope.
 
 #### Request scope
 
@@ -48,6 +48,10 @@ Request scope experiments are run on every http request. Any request scope will 
 #### Session scope
 
 Session scope experiments are called when a user logs into the site. At this time, a condition set will be decided on, and users will continue to have that condition set applied for the length of their session. This does not apply to guest users, only logged in users. When a user logs out, and logs back in, a new set of conditions is applied to the account, which may be the same condition set.
+
+#### Device scope
+
+Device scope experiments are set up before a session starts. This will set conditions for users based on their ip address and user agent. This scope allows conditions to be set earlier in the start up process, but it can only target a percentage of traffic and not specific users.
 
 ### Conditions
 

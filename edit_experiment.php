@@ -49,7 +49,8 @@ $manager = new tool_abconfig_experiment_manager();
 $experiment = $DB->get_record('tool_abconfig_experiment', array('id' => $eid));
 $data = array('experimentname' => $experiment->name, 'experimentshortname' => $experiment->shortname,
     'prevshortname' => $experiment->shortname, 'scope' => $experiment->scope,
-    'id' => $experiment->id, 'enabled' => $experiment->enabled, 'adminenabled' => $experiment->adminenabled);
+    'id' => $experiment->id, 'enabled' => $experiment->enabled, 'adminenabled' => $experiment->adminenabled,
+    'numoffset' => $experiment->numoffset ?? rand(0, 99));
 
 $customarray = array('eid' => $experiment->id);
 
@@ -72,6 +73,7 @@ if ($form->is_cancelled()) {
     $eid = $fromform->id;
     $prevshortname = $fromform->prevshortname;
     $adminenabled = $fromform->adminenabled;
+    $numoffset = $fromform->numoffset;
 
     // If eid is empty, do nothing.
     if ($eid == 0) {
@@ -83,7 +85,7 @@ if ($form->is_cancelled()) {
         $manager->delete_experiment($shortname);
         $manager->delete_all_conditions($eid);
     } else {
-        $manager->update_experiment($prevshortname, $name, $shortname, $scope, $enabled, $adminenabled);
+        $manager->update_experiment($prevshortname, $name, $shortname, $scope, $enabled, $adminenabled, $numoffset);
     }
 
     redirect($prevurl);

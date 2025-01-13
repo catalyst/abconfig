@@ -64,7 +64,7 @@ class tool_abconfig_lib_test extends advanced_testcase {
         $eid = $DB->insert_record('tool_abconfig_experiment',
             array('name' => 'Experiment', 'shortname' => 'experiment', 'scope' => 'request', 'enabled' => 1));
         $DB->insert_record('tool_abconfig_condition', array('experiment' => $eid, 'ipwhitelist' => '0.0.0.1',
-            'commands' => 'CFG,passwordpolicy,1', 'condset' => 'set1', 'value' => 100));
+            'commands' => '["CFG,passwordpolicy,1"]', 'condset' => 'set1', 'value' => 100));
 
         // Call the hook.
         tool_abconfig_after_config();
@@ -322,7 +322,7 @@ class tool_abconfig_lib_test extends advanced_testcase {
         $eid = $DB->insert_record('tool_abconfig_experiment',
             array('name' => 'Experiment', 'shortname' => 'experiment', 'scope' => 'session', 'enabled' => 1));
         $DB->insert_record('tool_abconfig_condition', array('experiment' => $eid, 'ipwhitelist' => '0.0.0.1',
-            'commands' => 'CFG,passwordpolicy,1', 'condset' => 'set1', 'value' => 100));
+            'commands' => '["CFG,passwordpolicy,1"]', 'condset' => 'set1', 'value' => 100));
 
         // Call the hook.
         tool_abconfig_after_require_login();
@@ -540,6 +540,299 @@ class tool_abconfig_lib_test extends advanced_testcase {
     }
 
     /**
+     * Test no execute for device experiments.
+     */
+    public function test_device_no_execute() {
+        $this->resetAfterTest(true);
+        global $CFG;
+        $_SERVER['REMOTE_ADDR'] = '123.123.123.123';
+        $_SERVER['HTTP_USER_AGENT'] = 'dummy';
+
+        // Setup a new user.
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $preconfig = $CFG;
+
+        // Execute hook call.
+        tool_abconfig_before_session_start();
+
+        // Check Config wasnt changed by hook (more for unintended side effect regression testing).
+        $this->assertSame($preconfig, $CFG);
+    }
+
+    /**
+     * Test changing config for device experiments.
+     */
+    public function test_device_core_experiment() {
+        $this->resetAfterTest(true);
+        global $DB, $CFG;
+        $_SERVER['REMOTE_ADDR'] = '123.123.123.123';
+        $_SERVER['HTTP_USER_AGENT'] = 'dummy';
+
+        // Setup a new user.
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        // Set config control to be modified by the experiment.
+        set_config('passwordpolicy', 0);
+
+        // Setup a valid experiment, and some conditions.
+        $eid = $DB->insert_record('tool_abconfig_experiment', [
+            'name' => 'Experiment',
+            'shortname' => 'experiment',
+            'scope' => 'device',
+            'enabled' => 1,
+            'numoffset' => 33,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["CFG,passwordpolicy,1"]',
+            'condset' => 'set1',
+            'value' => 100,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["CFG,passwordpolicy,0"]',
+            'condset' => 'set2',
+            'value' => 0,
+        ]);
+
+        // Call the hook and verify result.
+        tool_abconfig_before_session_start();
+        $this->assertEquals($CFG->passwordpolicy, 1);
+
+        // Now set control manually to incorrect state, as if another page load performed,
+        // And test correct behaviour is set in the hook.
+        unset($CFG->config_php_settings['passwordpolicy']);
+        set_config('passwordpolicy', 0);
+        tool_abconfig_before_session_start();
+        $this->assertEquals($CFG->passwordpolicy, 1);
+    }
+
+    /**
+     * Test changing plugin config for device experiments.
+     */
+    public function test_device_plugin_experiment() {
+        $this->resetAfterTest(true);
+        global $DB, $CFG;
+        $_SERVER['REMOTE_ADDR'] = '123.123.123.123';
+        $_SERVER['HTTP_USER_AGENT'] = 'dummy';
+
+        // Setup a new user.
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        // Set plugin config control to be modified by the experiment.
+        set_config('expiration', 'no', 'auth_manual');
+
+        // Setup a valid experiment, and some conditions.
+        $eid = $DB->insert_record('tool_abconfig_experiment', [
+            'name' => 'Experiment',
+            'shortname' => 'experiment',
+            'scope' => 'device',
+            'enabled' => 1,
+            'numoffset' => 33,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["forced_plugin_setting,auth_manual,expiration,yes"]',
+            'condset' => 'set1',
+            'value' => 100,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["forced_plugin_setting,auth_manual,expiration,no"]',
+            'condset' => 'set2',
+            'value' => 0,
+        ]);
+
+        // Call the hook and verify result.
+        tool_abconfig_before_session_start();
+        $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
+
+        // Reset config (simulates page load).
+        unset($CFG->forced_plugin_settings['auth_manual']['expiration']);
+        set_config('expiration', 'no', 'auth_manual');
+
+        // Now test that the hook sets to the correct device conditions.
+        tool_abconfig_before_session_start();
+        $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
+    }
+
+    /**
+     * Test multiple commands for device experiments.
+     */
+    public function test_device_multi_command() {
+        $this->resetAfterTest(true);
+        global $DB, $CFG;
+        $_SERVER['REMOTE_ADDR'] = '123.123.123.123';
+        $_SERVER['HTTP_USER_AGENT'] = 'dummy';
+
+        // Setup a new user.
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        // Set config control to be modified by the experiment.
+        set_config('passwordpolicy', 0);
+
+        // Set plugin config control to be modified by the experiment.
+        set_config('expiration', 'no', 'auth_manual');
+
+        // Setup a valid experiment, and some conditions.
+        $eid = $DB->insert_record('tool_abconfig_experiment', [
+            'name' => 'Experiment',
+            'shortname' => 'experiment',
+            'scope' => 'device',
+            'enabled' => 1,
+            'numoffset' => 33,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["CFG,passwordpolicy,1","forced_plugin_setting,auth_manual,expiration,yes"]',
+            'condset' => 'set1',
+            'value' => 100,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["forced_plugin_setting,auth_manual,expiration,no"]',
+            'condset' => 'set2',
+            'value' => 0,
+        ]);
+
+        // Execute the hook and test that the session config applied.
+        tool_abconfig_before_session_start();
+        $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
+        $this->assertEquals($CFG->passwordpolicy, 1);
+
+        // Manually reset settings (simulates new page load).
+        unset($CFG->forced_plugin_settings['auth_manual']['expiration']);
+        set_config('expiration', 'no', 'auth_manual');
+        unset($CFG->config_php_settings['passwordpolicy']);
+        set_config('passwordpolicy', 0);
+
+        // Test that the hook correctly applies both settings.
+        tool_abconfig_before_session_start();
+        $this->assertEquals(get_config('auth_manual', 'expiration'), 'yes');
+        $this->assertEquals($CFG->passwordpolicy, 1);
+    }
+
+    /**
+     * Test multiple conditions for device experiments.
+     */
+    public function test_device_multi_condition() {
+        $this->resetAfterTest(true);
+        global $DB, $CFG;
+        $_SERVER['REMOTE_ADDR'] = '123.123.123.123';
+        $_SERVER['HTTP_USER_AGENT'] = 'dummy';
+
+        // Setup a new user.
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        // Set config control to be modified by the experiment.
+        set_config('passwordpolicy', 0);
+
+        // Set plugin config control to be modified by the experiment.
+        set_config('expiration', 'no', 'auth_manual');
+
+        // Setup a valid experiment, and some conditions.
+        $eid = $DB->insert_record('tool_abconfig_experiment', [
+            'name' => 'Experiment',
+            'shortname' => 'experiment',
+            'scope' => 'device',
+            'enabled' => 1,
+            'numoffset' => 33,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["CFG,passwordpolicy,1"]',
+            'condset' => 0,
+            'value' => 100,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '0.0.0.1',
+            'commands' => '["forced_plugin_setting,auth_manual,expiration,yes"]',
+            'condset' => 1,
+            'value' => 0,
+        ]);
+
+        // Execute the hook, test only one condition set executed.
+        tool_abconfig_before_session_start();
+        $this->assertEquals(get_config('auth_manual', 'expiration'), 'no');
+        $this->assertEquals($CFG->passwordpolicy, 1);
+
+        // Manually reset settings (simulates new page load).
+        unset($CFG->forced_plugin_settings['auth_manual']['expiration']);
+        $CFG->forced_plugin_settings['auth_manual']['expiration'] = 'no';
+        unset($CFG->config_php_settings['passwordpolicy']);
+        set_config('passwordpolicy', 0);
+
+        // Test that hook only applies one setting.
+        tool_abconfig_before_session_start();
+        $this->assertEquals(get_config('auth_manual', 'expiration'), 'no');
+        $this->assertEquals($CFG->passwordpolicy, 1);
+    }
+
+    /**
+     * Test ip allow list for device experiments.
+     */
+    public function test_device_ip_whitelist() {
+        $this->resetAfterTest(true);
+        global $DB, $CFG;
+        $_SERVER['REMOTE_ADDR'] = '123.123.123.123';
+        $_SERVER['HTTP_USER_AGENT'] = 'dummy';
+
+        // Setup a new user.
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        // Set config control to be modified by the experiment.
+        set_config('passwordpolicy', 0);
+
+        // Setup a valid experiment, and some conditions.
+        $eid = $DB->insert_record('tool_abconfig_experiment', [
+            'name' => 'Experiment',
+            'shortname' => 'experiment',
+            'scope' => 'device',
+            'enabled' => 1,
+            'numoffset' => 33,
+        ]);
+
+        $DB->insert_record('tool_abconfig_condition', [
+            'experiment' => $eid,
+            'ipwhitelist' => '123.123.123.123',
+            'commands' => '["CFG,passwordpolicy,1"]',
+            'condset' => 'set1',
+            'value' => 100,
+        ]);
+
+        // Execute the hook and check that nothing was changed.
+        tool_abconfig_before_session_start();
+        $this->assertEquals($CFG->passwordpolicy, 0);
+
+        // Test that the hook also doesnt execute.
+        tool_abconfig_before_session_start();
+        $this->assertEquals($CFG->passwordpolicy, 0);
+    }
+
+    /**
      * Test that the experiment is executed on a given user based on their id.
      */
     public function test_condition_users_user_does_match_by_id() {
@@ -558,7 +851,7 @@ class tool_abconfig_lib_test extends advanced_testcase {
         // Set up a valid experiment and a condition for User 1.
         $manager = new tool_abconfig_experiment_manager();
         $experiment = $manager->add_experiment('Experiment', 'experiment', 'session');
-        $manager->update_experiment('experiment', 'Experiment', 'experiment', 'session', 1, 1);
+        $manager->update_experiment('experiment', 'Experiment', 'experiment', 'session', 1, 1, 33);
         $manager->add_condition($experiment, 'Users', '', 'CFG,passwordpolicy,1', 100, [$user1->id, $user2->id]);
 
         // Execute the hook and confirm that the experiment was executed for User 1.
@@ -587,7 +880,7 @@ class tool_abconfig_lib_test extends advanced_testcase {
         // Set up a valid experiment and a condition for User 1.
         $manager = new tool_abconfig_experiment_manager();
         $experiment = $manager->add_experiment('Experiment', 'experiment', 'session');
-        $manager->update_experiment('experiment', 'Experiment', 'experiment', 'session', 1, 1);
+        $manager->update_experiment('experiment', 'Experiment', 'experiment', 'session', 1, 1, 33);
         $manager->add_condition($experiment, 'Users', '', 'CFG,passwordpolicy,1', 100, [$user1->id, $user3->id]);
 
         // Execute the hook and confirm that the experiment was not executed for User 2.

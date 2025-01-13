@@ -37,6 +37,19 @@ class tool_abconfig_experiment_manager {
 
     // Experiment functions.
 
+    /** @var array Experiment js that needs to be rendered. */
+    private static $renderjs = [];
+
+    /**
+     * Gets an experiment by id.
+     * @param int $eid experiment id
+     * @return mixed
+     */
+    public function get_experiment(int $eid) {
+        global $DB;
+        return $DB->get_record('tool_abconfig_experiment', ['id' => $eid]);
+    }
+
     /**
      * Add an experiment
      * @param string $name
@@ -51,8 +64,14 @@ class tool_abconfig_experiment_manager {
         if ($this->experiment_exists($shortname)) {
             $return = false;
         } else {
-            $return = $DB->insert_record('tool_abconfig_experiment',
-                array('name' => $name, 'shortname' => $shortname, 'scope' => $scope, 'enabled' => 0, 'adminenabled' => 0));
+            $return = $DB->insert_record('tool_abconfig_experiment', [
+                'name' => $name,
+                'shortname' => $shortname,
+                'scope' => $scope,
+                'enabled' => 0,
+                'adminenabled' => 0,
+                'numoffset' => rand(0, 99),
+            ]);
         }
         self::invalidate_experiment_cache();
         return $return;
@@ -82,9 +101,10 @@ class tool_abconfig_experiment_manager {
      * @param string $scope
      * @param int $enabled
      * @param int $adminenabled
+     * @param int $numoffset
      * @return bool
      */
-    public function update_experiment($prevshortname, $name, $shortname, $scope, $enabled, $adminenabled) {
+    public function update_experiment($prevshortname, $name, $shortname, $scope, $enabled, $adminenabled, $numoffset) {
         global $DB;
         // Check whether the experiment exists to be updated.
         if (!$this->experiment_exists($prevshortname)) {
@@ -93,9 +113,15 @@ class tool_abconfig_experiment_manager {
             // Get id of record.
             $sqlexperiment = $DB->sql_compare_text($prevshortname, strlen($prevshortname));
             $record = $DB->get_record_sql('SELECT * FROM {tool_abconfig_experiment} WHERE shortname = ?', array($sqlexperiment));
-
-            $return = $DB->update_record('tool_abconfig_experiment', array('id' => $record->id, 'name' => $name,
-                'shortname' => $shortname, 'scope' => $scope, 'enabled' => $enabled, 'adminenabled' => $adminenabled));
+            $return = $DB->update_record('tool_abconfig_experiment', (object) [
+                'id' => $record->id,
+                'name' => $name,
+                'shortname' => $shortname,
+                'scope' => $scope,
+                'enabled' => $enabled,
+                'adminenabled' => $adminenabled,
+                'numoffset' => $numoffset,
+            ]);
         }
         self::invalidate_experiment_cache();
         return $return;
@@ -301,6 +327,23 @@ class tool_abconfig_experiment_manager {
     }
 
     /**
+     * Get active device experiments
+     * @return mixed
+     */
+    public function get_active_device() {
+        $experiments = self::get_experiments();
+
+        // Filter array for only enabled session experiments.
+        return array_filter($experiments, function ($experiment) {
+            if ($experiment['enabled'] == 1 && $experiment['scope'] == 'device') {
+                return true;
+            } else {
+                return false;
+            }
+        });
+    }
+
+    /**
      * Get active experiments
      * @return mixed
      */
@@ -315,6 +358,36 @@ class tool_abconfig_experiment_manager {
                 return false;
             }
         });
+    }
+
+    /**
+     * Sets experiment JS to be rendered.
+     * @param string $key
+     * @param string $value
+     * @return void
+     */
+    public function set_render_js(string $key, string $value): void {
+        // If there is existing render js queued up, that should take priority.
+        if (!isset(self::$renderjs[$key])) {
+            self::$renderjs[$key] = $value;
+        }
+    }
+
+    /**
+     * Gets experiment JS to be rendered.
+     * @return array
+     */
+    public function get_render_js(): array {
+        return self::$renderjs;
+    }
+
+    /**
+     * Unsets experiment JS.
+     * @param string $key
+     * @return void
+     */
+    public function remove_render_js(string $key): void {
+        unset(self::$renderjs[$key]);
     }
 
     /**

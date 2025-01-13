@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die;
 
 /**
- * After config
+ * After config, handles param, request and session experiments.
  *
  * This is a legacy callback that is used for compatibility with older Moodle versions.
  * Moodle 4.4+ will use tool_abconfig\hook_callbacks::after_config instead.
@@ -134,6 +134,83 @@ function tool_abconfig_after_config() {
                 $unique = 'abconfig_'.$record['shortname'];
                 if (property_exists($SESSION, $unique) && $SESSION->$unique != '') {
                     $commandarray[$record['shortname']] = $record['conditions'][$SESSION->$unique]['commands'];
+                }
+            }
+        }
+
+        // Now, execute all commands in the arrays.
+        foreach ($commandarray as $shortname => $command) {
+            tool_abconfig_execute_command_array($command, $shortname);
+        }
+    } catch (Exception $e) {        // @codingStandardsIgnoreStart
+        // Catch exceptions from stuff not existing during installation process, fail silently
+    }                               // @codingStandardsIgnoreEnd
+}
+
+/**
+ * Before session, handles device experiments.
+ *
+ * At some point this will also get converted to hook in core.
+ *
+ * @return void|null
+ */
+function tool_abconfig_before_session_start() {
+
+    global $CFG;
+
+    try {
+        // Device experiments require IP and user agent, so can't be used for CLI scripts.
+        if (!isset($_SERVER['REMOTE_ADDR']) || !isset($_SERVER['HTTP_USER_AGENT'])) {
+            return null;
+        }
+
+        // Check if the param to disable ABconfig is present, if so, exit.
+        if (!optional_param('abconfig', true, PARAM_BOOL)) {
+            // We don't have $USER so this isn't locked behind admin.
+            return null;
+        }
+
+        // Setup experiment manager.
+        $manager = new tool_abconfig_experiment_manager();
+
+        // First, Build a list of all commands that need to be executed.
+        $commandarray = [];
+
+        // Device scope.
+        $deviceexperiments = $manager->get_active_device();
+        if (!empty($deviceexperiments)) {
+            // Create a hash using IP and useragent, and convert it to a number.
+            $hash = md5($_SERVER['REMOTE_ADDR'] . $_SERVER['HTTP_USER_AGENT']);
+            $basenum = hexdec(substr($hash, 0, 8)) % 100;
+            foreach ($deviceexperiments as $record) {
+
+                // Admins are not immune from device experiments by default.
+                $conditionrecords = $record['conditions'];
+
+                // Remove all conditions that contain the user ip in the allow list.
+                $crecords = [];
+
+                foreach ($conditionrecords as $conditionrecord) {
+                    $iplist = $conditionrecord['ipwhitelist'];
+                    if (!remoteip_in_list($iplist)) {
+                        array_push($crecords, $conditionrecord);
+                    }
+                }
+
+                // Device logic.
+                // Add offset to the base to rotate hashes between experiments.
+                $num = ($basenum + $record['numoffset'] ?? 0) % 100;
+                $prevtotal = 0;
+                foreach ($crecords as $crecord) {
+                    // If random hash is within this range, set condition and break, else increment total.
+                    if ($num >= $prevtotal && $num < ($prevtotal + $crecord['value'])) {
+                        $commandarray[$record['shortname']] = $crecord['commands'];
+                        // Do not select any more conditions.
+                        break;
+                    } else {
+                        // Not this record, increment lower bound, and move on.
+                        $prevtotal += $crecord['value'];
+                    }
                 }
             }
         }
@@ -259,9 +336,10 @@ function tool_abconfig_before_http_headers() {
  * @return void
  */
 function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js = false, string $string = null) {
-    global $CFG, $SESSION;
+    global $CFG;
 
     // Execute any commands passed in.
+    $manager = new tool_abconfig_experiment_manager();
     $commands = json_decode($commandsencoded);
     foreach ($commands as $commandstring) {
 
@@ -309,20 +387,20 @@ function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js =
         if ($command == 'js_header') {
             // Check for JS header scripts.
             $commandarray = explode(',', $commandstring, 2);
-            // Set a unique session variable to be picked up by renderer hooks, to emit JS in the right areas.
+            // Set a unique manager variable to be picked up by renderer hooks, to emit JS in the right areas.
             $jsheaderunique = 'abconfig_js_header_'.$shortname;
 
-            // Store the unique in the session to be picked up by the header render hook.
-            $SESSION->$jsheaderunique = $commandarray[1];
+            // Store the unique in the manager to be picked up by the header render hook.
+            $manager->set_render_js($jsheaderunique, $commandarray[1]);
 
         }
         if ($command == 'js_footer') {
             // Check for JS footer scripts.
             $commandarray = explode(',', $commandstring, 2);
-            // Set a unique session variable to be picked up by renderer hooks, to emit JS in the right areas.
+            // Set a unique manager variable to be picked up by renderer hooks, to emit JS in the right areas.
             $jsfooterunique = 'abconfig_js_footer_'.$shortname;
-            // Store the javascript in the session unique to be picked up by the footer render hook.
-            $SESSION->$jsfooterunique = $commandarray[1];
+            // Store the javascript in the manager unique to be picked up by the footer render hook.
+            $manager->set_render_js($jsfooterunique, $commandarray[1]);
         }
     }
 }
@@ -340,11 +418,10 @@ function tool_abconfig_execute_js(string $type) {
         }
     }
 
-    global $SESSION;
-
     // Get all experiments.
     $manager = new tool_abconfig_experiment_manager();
     $records = $manager->get_experiments();
+    $renderjs = $manager->get_render_js();
 
     foreach ($records as $record) {
         // If called from header.
@@ -354,14 +431,14 @@ function tool_abconfig_execute_js(string $type) {
             $unique = 'abconfig_js_footer_'.$record['shortname'];
         }
 
-        if (property_exists($SESSION, $unique)) {
+        if (array_key_exists($unique, $renderjs)) {
             // Found JS to be executed.
-            echo "<script type='text/javascript'>{$SESSION->$unique}</script>";
+            echo "<script type='text/javascript'>{$renderjs[$unique]}</script>";
         }
 
         // If experiment is request scope, unset var so it doesnt fire again.
         if ($record['scope'] == 'request' || $record['enabled'] == 0) {
-            unset($SESSION->$unique);
+            $manager->remove_render_js($unique);
         }
     }
 }
