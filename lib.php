@@ -349,7 +349,7 @@ function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js =
         if ($command == 'CFG') {
             $commandarray = explode(',', $commandstring, 3);
 
-            // Allow override if set in config.php already:
+            // Allow override if set in config.php already.
             $allow = isset($CFG->{$commandarray[1] . '_allow_abconfig'});
 
             // Ensure that command hasn't already been set in config.php.
@@ -357,6 +357,8 @@ function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js =
                 $CFG->{$commandarray[1]} = $commandarray[2];
                 $CFG->config_php_settings[$commandarray[1]] = $commandarray[2];
             } else {
+                // Debugging shouldn't be used before sessions are loaded.
+                // @codingStandardsIgnoreLine
                 error_log("abconfig: Can't override \$CFG->{$commandarray[1]} because already set in config.php!");
             }
         }
@@ -364,12 +366,18 @@ function tool_abconfig_execute_command_array($commandsencoded, $shortname, $js =
             // Check for plugin commands.
             $commandarray = explode(',', $commandstring, 4);
 
-            // Ensure that command hasnt already been forced in config.php.
-            // If plugin settings array doesnt exist, or the actualy config key doesnt exist.
+            // Ensure that command hasnt already been forced in config.php or that overriding is allowed.
+            // If plugin settings array doesnt exist, or the actual config key doesnt exist.
             if (!array_key_exists($commandarray[1], $CFG->forced_plugin_settings) ||
-                !array_key_exists($commandarray[2], $CFG->forced_plugin_settings[$commandarray[1]])) {
+                    !array_key_exists($commandarray[2], $CFG->forced_plugin_settings[$commandarray[1]]) ||
+                    array_key_exists($commandarray[2] . '_allow_abconfig', $CFG->forced_plugin_settings[$commandarray[1]])) {
 
                 $CFG->forced_plugin_settings[$commandarray[1]][$commandarray[2]] = $commandarray[3];
+            } else {
+                // Debugging shouldn't be used before sessions are loaded.
+                // @codingStandardsIgnoreLine
+                error_log("abconfig: Can't override \$CFG->forced_plugin_settings['$commandarray[1]']['$commandarray[2]'] " .
+                    "because already set in config.php!");
             }
         }
         if ($command == 'http_header') {
