@@ -48,8 +48,8 @@ function tool_abconfig_after_config() {
             }
         }
 
-        // Get all experiments.
-        $experiments = $manager->get_experiments();
+        // Get all after congig experiments and check params.
+        $experiments = $manager->get_after_config_experiments();
         foreach ($experiments as $experiment => $contents) {
 
             if (defined('CLI_SCRIPT') && CLI_SCRIPT) {
@@ -172,6 +172,23 @@ function tool_abconfig_before_session_start() {
 
         // Setup experiment manager.
         $manager = new tool_abconfig_experiment_manager();
+
+        // Get all before session experiments and check params.
+        $experiments = $manager->get_before_session_experiments();
+        foreach ($experiments as $experiment => $contents) {
+
+            // Check URL params, and fire any experiments in the params.
+            $condition = optional_param($experiment, null, PARAM_TEXT);
+            if (empty($condition)) {
+                continue;
+            }
+
+            // Ensure condition set exists before executing.
+            if (array_key_exists($condition, $contents['conditions'])) {
+                tool_abconfig_execute_command_array($contents['conditions'][$condition]['commands'],
+                    $contents['shortname']);
+            }
+        }
 
         // First, Build a list of all commands that need to be executed.
         $commandarray = [];

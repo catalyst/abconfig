@@ -293,6 +293,40 @@ class tool_abconfig_experiment_manager {
     }
 
     /**
+     * Get all experiments that should be run before session
+     * @return mixed
+     */
+    public function get_before_session_experiments() {
+        $experiments = self::get_experiments();
+
+        // Filter array for all before session experiments.
+        return array_filter($experiments, function ($experiment) {
+            if ($experiment['scope'] == 'device') {
+                return true;
+            } else {
+                return false;
+            }
+        });
+    }
+
+    /**
+     * Get all experiments that should be run after config
+     * @return mixed
+     */
+    public function get_after_config_experiments() {
+        $experiments = self::get_experiments();
+
+        // Filter array for all after config experiments.
+        return array_filter($experiments, function ($experiment) {
+            if (in_array($experiment['scope'], ['request', 'session'])) {
+                return true;
+            } else {
+                return false;
+            }
+        });
+    }
+
+    /**
      * Get active requests
      * @return mixed
      */
@@ -333,7 +367,7 @@ class tool_abconfig_experiment_manager {
     public function get_active_device() {
         $experiments = self::get_experiments();
 
-        // Filter array for only enabled session experiments.
+        // Filter array for only enabled device experiments.
         return array_filter($experiments, function ($experiment) {
             if ($experiment['enabled'] == 1 && $experiment['scope'] == 'device') {
                 return true;
